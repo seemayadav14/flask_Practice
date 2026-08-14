@@ -5,25 +5,22 @@ from dotenv import load_dotenv
 import certifi
 import os
 
-# Load env vars
+# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
+
 app.config["MONGO_URI"] = os.getenv("MONGO_URI")
 app.secret_key = os.getenv("SECRET_KEY")
 
-
-# Use TLS only when MONGO_TLS is enabled
+# Configure MongoDB TLS only when MONGO_TLS=true
 mongo_kwargs = {}
 
 if os.getenv("MONGO_TLS", "false").lower() == "true":
+    mongo_kwargs["tls"] = True
     mongo_kwargs["tlsCAFile"] = certifi.where()
 
 mongo = PyMongo(app, **mongo_kwargs)
-
-# Use certifi CA bundle explicitly for cross-platform TLS reliability
-# (notably fixes common macOS certificate verification failures).
-mongo = PyMongo(app, tlsCAFile=certifi.where())
 
 # Health check
 @app.route('/health')
