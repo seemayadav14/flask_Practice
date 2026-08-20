@@ -143,10 +143,13 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+
           script: |
             set -e
 
+            echo "========================================"
             echo "Logging in to Amazon ECR..."
+            echo "========================================"
 
             aws ecr get-login-password \
               --region ${{ env.AWS_REGION }} | \
@@ -155,28 +158,46 @@ jobs:
               --password-stdin \
               ${{ secrets.ECR_REGISTRY }}
 
+            echo "========================================"
             echo "Pulling Docker image..."
+            echo "========================================"
 
             docker pull \
               ${{ secrets.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
+            echo "========================================"
             echo "Stopping old container..."
+            echo "========================================"
 
             docker stop flask-app || true
 
+            echo "========================================"
             echo "Removing old container..."
+            echo "========================================"
 
             docker rm flask-app || true
 
+            echo "========================================"
             echo "Starting new container..."
+            echo "========================================"
 
             docker run -d \
               --name flask-app \
               --restart unless-stopped \
               -p 5000:5000 \
+              -e MONGO_URI='${{ secrets.MONGO_URI }}' \
+              -e SECRET_KEY='${{ secrets.SECRET_KEY }}' \
               ${{ secrets.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
+            echo "========================================"
             echo "Deployment completed."
+            echo "========================================"
+
+            echo "Checking container status..."
+
+            docker ps --filter "name=flask-app"
+
+            echo "Deployment successful."
 
 
   # ==================================================
@@ -211,6 +232,7 @@ jobs:
   # ==================================================
   success-notification:
     name: Send Success Email
+
     needs:
       - test
       - build
@@ -237,7 +259,9 @@ jobs:
           server_port: ${{ secrets.SMTP_PORT }}
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
+
           subject: "SUCCESS - Flask CI/CD Deployment"
+
           to: ${{ secrets.MAIL_TO }}
           from: ${{ secrets.SMTP_USERNAME }}
 
@@ -273,6 +297,7 @@ jobs:
   # ==================================================
   failure-notification:
     name: Send Failure Email
+
     needs:
       - test
       - build
@@ -301,7 +326,9 @@ jobs:
           server_port: ${{ secrets.SMTP_PORT }}
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
+
           subject: "FAILURE - Flask CI/CD Pipeline"
+
           to: ${{ secrets.MAIL_TO }}
           from: ${{ secrets.SMTP_USERNAME }}
 
